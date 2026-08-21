@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSchoolContext } from "@/lib/tenant-context";
 import { withTenantContext } from "@/lib/prisma-tenant";
+import { syncBillingRuleToAsaas } from "@/lib/asaas-billing-rules";
 import { apiErrorResponse, ValidationError } from "@/lib/api-errors";
 
 const NOTIFICATION_CHANNELS = ["WHATSAPP", "EMAIL", "SMS", "VOICE"] as const;
@@ -88,7 +89,18 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    return NextResponse.json(rule, { status: wasCreated ? 201 : 200 });
+    // Best-effort: falha do Asaas não derruba a resposta (NFR-002 —
+    // indisponibilidade do Asaas não pode travar o painel). A régua local já
+    // está salva; o sync fica pendente até o próximo POST bem-sucedido.
+    let asaasSync: { synced: boolean; dropped: string[] } | { error: string };
+    try {
+      asaasSync = await syncBillingRuleToAsaas(schoolId, rule);
+    } catch (error) {
+      console.error("Falha ao sincronizar régua com o Asaas", error);
+      asaasSync = { error: "Não foi possível sincronizar com o Asaas agora; a régua local foi salva." };
+    }
+
+    return NextResponse.json({ ...rule, asaasSync }, { status: wasCreated ? 201 : 200 });
   } catch (error) {
     return apiErrorResponse(error);
   }

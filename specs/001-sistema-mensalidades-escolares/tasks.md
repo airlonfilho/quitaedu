@@ -55,16 +55,16 @@ Referência: `data-model.md` e `contracts/api.md`.
 
 Referência: `../../docs/arquitetura-completa.md` (seções 2, 4 e 6).
 
-- [ ] A-006 **Validar em sandbox**: criação de subconta via API, configuração de régua por cliente, e principalmente quanto dá pra customizar a mensagem de WhatsApp — **bloqueante para prometer "cobrança com a cara da escola"** (ver `research.md`, riscos técnicos abertos)
-- [ ] A-007 Confirmar mecanismo de assinatura de webhook do Asaas (HMAC ou token) na documentação oficial
-- [ ] A-008 Confirmar prazo típico de verificação/KYC de subconta nova
-- [ ] A-009 Serviço de criação automática de subconta Asaas no onboarding de escola (armazenar `apiKey` criptografada + `walletId`)
-- [ ] A-010 Serviço de criação de cobrança (Pix + boleto + cartão) via API, na subconta da escola
-- [ ] A-011 Job agendado de geração mensal de cobranças (cron), com verificação de idempotência via constraint única
-- [ ] A-012 Serviço de configuração da régua de notificação por cliente via API
-- [ ] A-013 Endpoint de webhook (`/api/webhooks/asaas`) com validação de assinatura e processamento idempotente
-- [ ] A-014 Job de reconciliação periódica (fallback para webhook perdido/atrasado)
-- [ ] A-015 Emissão de segunda via sob demanda
+- [x] A-006 **Validar em sandbox**: criação de subconta via API, configuração de régua por cliente, e principalmente quanto dá pra customizar a mensagem de WhatsApp — testado de verdade contra `api-sandbox.asaas.com`; resposta: texto da mensagem não é customizável, criação de subconta bloqueada por conta raiz ser PF (ver `research.md`, seção "A-006 — resultado da validação em sandbox")
+- [x] A-007 Confirmar mecanismo de assinatura de webhook do Asaas (HMAC ou token) na documentação oficial — é token estático no header `asaas-access-token`, não HMAC (ver `research.md`)
+- [x] A-008 Confirmar prazo típico de verificação/KYC de subconta nova — até 48h para análise automática de documentos, mais uma janela regulatória de até 60 dias com limites (ver `research.md`)
+- [ ] A-009 Serviço de criação automática de subconta Asaas no onboarding de escola (armazenar `apiKey` criptografada + `walletId`) — **bloqueado**: exige conta raiz Pessoa Jurídica (CNPJ), que a Quitaedu ainda não tem (ver `research.md`)
+- [x] A-010 Serviço de criação de cobrança (Pix + boleto + cartão) via API — implementado usando a conta raiz sandbox como escola-piloto simulada (ver `src/lib/asaas-charges.ts`, `POST /api/charges/generate`), testado com cobrança real gerada e idempotência confirmada
+- [x] A-011 Job agendado de geração mensal de cobranças (cron), com verificação de idempotência via constraint única — implementado (`src/lib/asaas-monthly-generation.ts`, `POST /api/cron/generate-charges`); ainda falta o `vercel.json`/agendador de verdade (sem deploy alvo definido ainda) — endpoint pronto pra ser chamado por qualquer scheduler externo
+- [x] A-012 Serviço de configuração da régua de notificação por cliente via API — implementado (`src/lib/asaas-billing-rules.ts`), testado contra sandbox real; achado importante: `scheduleOffset` aceita só um conjunto restrito de valores por slot, não é livre (ver `research.md`)
+- [x] A-013 Endpoint de webhook (`/api/webhooks/asaas`) com validação de token e processamento idempotente — implementado e testado com payload simulado (token errado → 401, evento mapeado atualiza status, evento/cobrança desconhecidos são aceitos sem efeito)
+- [x] A-014 Job de reconciliação periódica (fallback para webhook perdido/atrasado) — implementado (`src/lib/asaas-reconciliation.ts`, `POST /api/cron/reconcile-charges`)
+- [x] A-015 Emissão de segunda via sob demanda — implementado (`GET /api/charges/:id/second-copy`), testado retornando link de fatura/boleto/Pix ao vivo do Asaas
 
 ---
 

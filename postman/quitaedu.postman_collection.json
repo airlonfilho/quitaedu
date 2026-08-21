@@ -14,7 +14,10 @@
     { "key": "schoolId", "value": "" },
     { "key": "guardianId", "value": "" },
     { "key": "studentId", "value": "" },
-    { "key": "tuitionPlanId", "value": "" }
+    { "key": "tuitionPlanId", "value": "" },
+    { "key": "chargeId", "value": "" },
+    { "key": "cronSecret", "value": "" },
+    { "key": "asaasWebhookToken", "value": "" }
   ],
   "item": [
     {
@@ -259,8 +262,9 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Plano Integral\",\n  \"baseValue\": 850.5,\n  \"dueDay\": 10,\n  \"discountRules\": { \"irmaos\": 10 }\n}"
-            }
+              "raw": "{\n  \"name\": \"Plano Integral\",\n  \"baseValue\": 850.5,\n  \"dueDay\": 28,\n  \"discountRules\": { \"irmaos\": 10 }\n}"
+            },
+            "description": "dueDay alto (28) de propósito: o Asaas recusa cobrança com vencimento no passado (ver research.md) — um dueDay baixo pode já ter passado dependendo do dia em que você testar."
           },
           "event": [
             {
@@ -302,12 +306,42 @@
       "name": "Charges (SCHOOL_MANAGER)",
       "item": [
         {
+          "name": "Generate Charge (Asaas real — Trilha C)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/charges/generate",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\"\n}"
+            },
+            "description": "Requer que o aluno tenha tuitionPlanId e um responsável primário com CPF válido (checksum real — o Asaas valida). Chama a API do Asaas de verdade (sandbox)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('chargeId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "List Charges",
           "request": { "method": "GET", "url": "{{baseUrl}}/api/charges" }
         },
         {
           "name": "List Charges (filtros)",
           "request": { "method": "GET", "url": "{{baseUrl}}/api/charges?status=PENDING&competency=2026-08" }
+        },
+        {
+          "name": "Segunda via",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/charges/{{chargeId}}/second-copy" }
         }
       ]
     },
@@ -358,6 +392,45 @@
         {
           "name": "Summary (competência específica)",
           "request": { "method": "GET", "url": "{{baseUrl}}/api/dashboard/summary?competency=2026-08" }
+        }
+      ]
+    },
+    {
+      "name": "Webhook + Cron (sistema, não sessão)",
+      "item": [
+        {
+          "name": "Simular Webhook Asaas (PAYMENT_RECEIVED)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/webhooks/asaas",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "asaas-access-token", "value": "{{asaasWebhookToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"PAYMENT_RECEIVED\",\n  \"payment\": { \"id\": \"pay_troque_pelo_asaasChargeId\" }\n}"
+            },
+            "description": "asaasWebhookToken = valor de ASAAS_WEBHOOK_TOKEN no .env. Sem sessão — autenticado só pelo header."
+          }
+        },
+        {
+          "name": "Cron: Gerar cobranças do mês",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cron/generate-charges",
+            "header": [{ "key": "Authorization", "value": "Bearer {{cronSecret}}" }],
+            "description": "cronSecret = valor de CRON_SECRET no .env. Alternativa: fazer login como PLATFORM_ADMIN e chamar sem esse header."
+          }
+        },
+        {
+          "name": "Cron: Reconciliar cobranças",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cron/reconcile-charges",
+            "header": [{ "key": "Authorization", "value": "Bearer {{cronSecret}}" }],
+            "description": "cronSecret = valor de CRON_SECRET no .env. Alternativa: fazer login como PLATFORM_ADMIN e chamar sem esse header."
+          }
         }
       ]
     }

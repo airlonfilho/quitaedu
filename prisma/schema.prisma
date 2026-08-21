@@ -1,0 +1,231 @@
+// schema.prisma — núcleo do domínio. Convenções: snake_case no banco via @map,
+// camelCase no client Prisma. Todo model com dado de tenant carrega schoolId.
+// Fonte: specs/001-sistema-mensalidades-escolares/data-model.md
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id        String       @id @default(cuid())
+  name      String
+  cnpj      String       @unique
+  status    SchoolStatus @default(ONBOARDING)
+  planTier  PlanTier     @default(ESSENCIAL)
+  createdAt DateTime     @default(now())
+
+  subaccount   SchoolSubaccount?
+  users        User[]
+  guardians    Guardian[]
+  students     Student[]
+  tuitionPlans TuitionPlan[]
+  billingRules BillingRule[]
+  auditLogs    AuditLog[]
+
+  @@map("schools")
+}
+
+model SchoolSubaccount {
+  id              String           @id @default(cuid())
+  schoolId        String           @unique
+  school          School           @relation(fields: [schoolId], references: [id])
+  asaasAccountId  String           @unique // id da subconta no Asaas
+  walletId        String // usado em split de pagamento
+  apiKeyEncrypted String // NUNCA em texto plano — ver seção 6
+  status          SubaccountStatus @default(PENDING_VERIFICATION)
+  createdAt       DateTime         @default(now())
+
+  @@map("school_subaccounts")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  schoolId     String? // null = admin da plataforma
+  school       School?  @relation(fields: [schoolId], references: [id])
+  email        String   @unique
+  passwordHash String // bcrypt — login via credenciais (Auth.js), contas provisionadas por admin
+  role         UserRole @default(SCHOOL_MANAGER)
+  createdAt    DateTime @default(now())
+
+  @@index([schoolId])
+  @@map("users")
+}
+
+model Guardian {
+  id              String  @id @default(cuid())
+  schoolId        String
+  school          School  @relation(fields: [schoolId], references: [id])
+  name            String
+  cpf             String
+  phone           String // usado como identificador WhatsApp
+  email           String?
+  asaasCustomerId String? // id do cliente espelhado no Asaas
+
+  students StudentGuardian[]
+  charges  Charge[]
+
+  @@unique([schoolId, cpf])
+  @@index([schoolId])
+  @@map("guardians")
+}
+
+model Student {
+  id        String        @id @default(cuid())
+  schoolId  String
+  school    School        @relation(fields: [schoolId], references: [id])
+  name      String
+  className String?
+  status    StudentStatus @default(ACTIVE)
+
+  guardians           StudentGuardian[]
+  tuitionPlanId       String?
+  tuitionPlan         TuitionPlan?      @relation(fields: [tuitionPlanId], references: [id])
+  charges             Charge[]
+  billingRuleOverride BillingRule?
+
+  @@index([schoolId])
+  @@map("students")
+}
+
+model StudentGuardian {
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  guardianId String
+  guardian   Guardian @relation(fields: [guardianId], references: [id])
+  isPrimary  Boolean  @default(true) // responsável financeiro principal
+
+  @@id([studentId, guardianId])
+  @@map("student_guardians")
+}
+
+model TuitionPlan {
+  id            String  @id @default(cuid())
+  schoolId      String
+  school        School  @relation(fields: [schoolId], references: [id])
+  name          String
+  baseValue     Decimal @db.Decimal(10, 2)
+  dueDay        Int // dia do mês, 1-28
+  discountRules Json? // ex: desconto por irmãos/pontualidade
+
+  students Student[]
+
+  @@index([schoolId])
+  @@map("tuition_plans")
+}
+
+model Charge {
+  id              String       @id @default(cuid())
+  schoolId        String // desnormalizado — evita join em toda query de dashboard
+  studentId       String
+  student         Student      @relation(fields: [studentId], references: [id])
+  guardianId      String
+  guardian        Guardian     @relation(fields: [guardianId], references: [id])
+  competencyMonth Int // 1-12
+  competencyYear  Int
+  value           Decimal      @db.Decimal(10, 2)
+  status          ChargeStatus @default(PENDING)
+  asaasChargeId   String       @unique
+  pixQrCode       String?      @db.Text
+  boletoUrl       String?
+  paidAt          DateTime?
+  createdAt       DateTime     @default(now())
+
+  notifications NotificationLog[]
+
+  @@unique([studentId, competencyYear, competencyMonth]) // uma cobrança por aluno/mês
+  @@index([schoolId, status])
+  @@index([studentId, competencyYear, competencyMonth])
+  @@map("charges")
+}
+
+model NotificationLog {
+  id        String              @id @default(cuid())
+  chargeId  String
+  charge    Charge              @relation(fields: [chargeId], references: [id])
+  channel   NotificationChannel
+  status    String // status bruto retornado pelo webhook Asaas
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([chargeId])
+  @@map("notification_logs")
+}
+
+model BillingRule {
+  id         String                @id @default(cuid())
+  schoolId   String
+  school     School                @relation(fields: [schoolId], references: [id])
+  studentId  String?               @unique // null = regra padrão da escola; preenchido = override individual
+  student    Student?              @relation(fields: [studentId], references: [id])
+  daysBefore Int[]                 @default([5]) // ex: [5] = lembrete 5 dias antes
+  daysAfter  Int[]                 @default([1, 7]) // ex: cobrança em atraso em D+1 e D+7
+  channels   NotificationChannel[]
+  active     Boolean               @default(true)
+
+  @@index([schoolId])
+  @@map("billing_rules")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  schoolId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  userId     String
+  action     String // ex: "charge.created", "billing_rule.updated"
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@map("audit_logs")
+}
+
+enum SchoolStatus {
+  ONBOARDING
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubaccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  RESTRICTED
+}
+
+enum PlanTier {
+  ESSENCIAL
+  PROFISSIONAL
+  ESCOLA_PLUS
+}
+
+enum UserRole {
+  PLATFORM_ADMIN
+  SCHOOL_MANAGER
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+  SMS
+  VOICE
+}

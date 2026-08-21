@@ -1,0 +1,365 @@
+{
+  "info": {
+    "name": "Quitaedu API",
+    "description": "Coleção para testar a API interna do Quitaedu localmente. Rode 'Get CSRF Token' e depois um dos logins (Auth) antes de qualquer outro request — o Postman guarda o cookie de sessão automaticamente para as chamadas seguintes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "csrfToken", "value": "" },
+    { "key": "adminEmail", "value": "admin@quitaedu.com.br" },
+    { "key": "adminPassword", "value": "senha123" },
+    { "key": "gestorEmail", "value": "gestor@escolaexemplo.com.br" },
+    { "key": "gestorPassword", "value": "senha123" },
+    { "key": "schoolId", "value": "" },
+    { "key": "guardianId", "value": "" },
+    { "key": "studentId", "value": "" },
+    { "key": "tuitionPlanId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get CSRF Token",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('csrfToken', json.csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login como SCHOOL_MANAGER (gestor)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/callback/credentials",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{gestorEmail}}" },
+                { "key": "password", "value": "{{gestorPassword}}" },
+                { "key": "csrfToken", "value": "{{csrfToken}}" },
+                { "key": "redirect", "value": "false" }
+              ]
+            },
+            "description": "Precisa rodar 'Get CSRF Token' antes. Sucesso = 302, e o cookie de sessão (authjs.session-token) fica salvo pro resto da coleção."
+          }
+        },
+        {
+          "name": "Login como PLATFORM_ADMIN",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/callback/credentials",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{adminEmail}}" },
+                { "key": "password", "value": "{{adminPassword}}" },
+                { "key": "csrfToken", "value": "{{csrfToken}}" },
+                { "key": "redirect", "value": "false" }
+              ]
+            },
+            "description": "Precisa rodar 'Get CSRF Token' antes."
+          }
+        },
+        {
+          "name": "Get Session (conferir quem está logado)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/session"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Schools (PLATFORM_ADMIN)",
+      "item": [
+        {
+          "name": "Create School",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/schools",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Escola Postman\",\n  \"cnpj\": \"12345678000199\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('schoolId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get School by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Guardians (SCHOOL_MANAGER)",
+      "item": [
+        {
+          "name": "Create Guardian",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guardians",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Maria Responsável\",\n  \"cpf\": \"111.222.333-44\",\n  \"phone\": \"5585999990000\",\n  \"email\": \"maria@example.com\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('guardianId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Guardians",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/guardians" }
+        },
+        {
+          "name": "List Guardians (search)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/guardians?search=maria" }
+        },
+        {
+          "name": "Get Guardian by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/guardians/{{guardianId}}" }
+        },
+        {
+          "name": "Update Guardian",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/guardians/{{guardianId}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"5585988887777\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Students (SCHOOL_MANAGER)",
+      "item": [
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/students",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"João Aluno\",\n  \"className\": \"5A\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('studentId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Students",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/students" }
+        },
+        {
+          "name": "List Students (filtros)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/students?status=ACTIVE&className=5A" }
+        },
+        {
+          "name": "Get Student by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/students/{{studentId}}" }
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/students/{{studentId}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"className\": \"5B\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Link Guardian to Student",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/students/{{studentId}}/guardians",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guardianId\": \"{{guardianId}}\",\n  \"isPrimary\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Unlink Guardian from Student",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/students/{{studentId}}/guardians/{{guardianId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tuition Plans (SCHOOL_MANAGER)",
+      "item": [
+        {
+          "name": "Create Tuition Plan",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tuition-plans",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Plano Integral\",\n  \"baseValue\": 850.5,\n  \"dueDay\": 10,\n  \"discountRules\": { \"irmaos\": 10 }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('tuitionPlanId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Tuition Plans",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/tuition-plans" }
+        },
+        {
+          "name": "Get Tuition Plan by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/tuition-plans/{{tuitionPlanId}}" }
+        },
+        {
+          "name": "Update Tuition Plan",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/tuition-plans/{{tuitionPlanId}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"baseValue\": 900\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Charges (SCHOOL_MANAGER)",
+      "item": [
+        {
+          "name": "List Charges",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/charges" }
+        },
+        {
+          "name": "List Charges (filtros)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/charges?status=PENDING&competency=2026-08" }
+        }
+      ]
+    },
+    {
+      "name": "Billing Rules (SCHOOL_MANAGER)",
+      "item": [
+        {
+          "name": "Create/Update Regra Padrão da Escola",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/billing-rules",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"daysBefore\": [5, 2],\n  \"daysAfter\": [1, 7],\n  \"channels\": [\"WHATSAPP\", \"EMAIL\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create/Update Override por Aluno",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/billing-rules",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"active\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "List Billing Rules",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/billing-rules" }
+        },
+        {
+          "name": "Get Override de um Aluno",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/billing-rules?studentId={{studentId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard (SCHOOL_MANAGER)",
+      "item": [
+        {
+          "name": "Summary (mês atual)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/dashboard/summary" }
+        },
+        {
+          "name": "Summary (competência específica)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/dashboard/summary?competency=2026-08" }
+        }
+      ]
+    }
+  ]
+}

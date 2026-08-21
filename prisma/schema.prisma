@@ -3,8 +3,12 @@
 // Fonte: specs/001-sistema-mensalidades-escolares/data-model.md
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  // "native" = seu ambiente local (macOS); "rhel-openssl-3.0.x" = runtime de
+  // Function do Vercel. Sem isso, o client gerado localmente não roda lá
+  // (PrismaClientInitializationError: Query Engine não encontrada).
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

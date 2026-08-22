@@ -3,8 +3,13 @@
 // Fonte: specs/001-sistema-mensalidades-escolares/data-model.md
 
 generator client {
-  provider      = "prisma-client"
-  output        = "../src/generated/prisma"
+  // "prisma-client-js" (clássico) em vez de "prisma-client" (novo, ESM) —
+  // o novo gerador exige output customizado, que o file tracing do
+  // Next.js/Vercel não empacota corretamente para a function serverless
+  // (engine gerada mas nunca copiada para o bundle de deploy). O clássico usa
+  // o local padrão (node_modules/.prisma/client), que o Next.js já sabe
+  // empacotar certo.
+  provider      = "prisma-client-js"
   // "native" = seu ambiente local (macOS); "rhel-openssl-3.0.x" = runtime de
   // Function do Vercel. Sem isso, o client gerado localmente não roda lá
   // (PrismaClientInitializationError: Query Engine não encontrada).

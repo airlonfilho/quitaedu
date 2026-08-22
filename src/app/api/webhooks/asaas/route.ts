@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import type { ChargeStatus } from "@/generated/prisma/client";
+import type { ChargeStatus } from "@prisma/client";
 
 const WEBHOOK_TOKEN = process.env.ASAAS_WEBHOOK_TOKEN;
 

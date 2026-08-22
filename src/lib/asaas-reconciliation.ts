@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { asaasRequest, resolveAsaasApiKey } from "@/lib/asaas";
-import type { ChargeStatus } from "@/generated/prisma/client";
+import type { ChargeStatus } from "@prisma/client";
 
 interface AsaasPaymentStatus {
   status: string;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@prisma/client";
 import { requireSchoolContext } from "@/lib/tenant-context";
 import { withTenantContext } from "@/lib/prisma-tenant";
 import { apiErrorResponse, ValidationError } from "@/lib/api-errors";

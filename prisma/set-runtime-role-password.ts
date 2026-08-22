@@ -9,7 +9,7 @@
  */
 import "dotenv/config";
 import { randomBytes } from "node:crypto";
-import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;

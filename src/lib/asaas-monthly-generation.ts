@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/prisma";
 import { generateChargeForStudent } from "@/lib/asaas-charges";
 
@@ -23,6 +24,7 @@ export async function generateMonthlyCharges(competencyYear: number, competencyM
       processed++;
     } catch (error) {
       errors.push({ studentId: student.id, message: error instanceof Error ? error.message : String(error) });
+      Sentry.captureException(error, { tags: { job: "generate-charges" }, extra: { studentId: student.id } });
     }
   }
 

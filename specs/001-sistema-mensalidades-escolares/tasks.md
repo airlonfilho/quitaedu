@@ -71,7 +71,7 @@ Referência: `../../docs/arquitetura-completa.md` (seções 2, 4 e 6).
 ## Fases seguintes (cruzam as três trilhas)
 
 ### Fase — Piloto
-- [ ] P-001 Ambiente de produção configurado (deploy, monitoramento, alertas) — Trilha B
+- [x] P-001 Ambiente de produção configurado (deploy, monitoramento, alertas) — Trilha B. Deploy no Vercel testado ponta a ponta (login, cobrança real, webhook real do Asaas, cron agendado); monitoramento via Sentry (integração nativa Vercel↔Sentry) — captura automática de erro não tratado em toda rota (`instrumentation.ts`/`onRequestError`) + captura explícita das falhas "silenciosas" dos crons de geração/reconciliação (hoje só voltavam num array de erro no JSON, ninguém via). Alerta por e-mail em issue novo é o padrão do Sentry, não precisou configurar nada extra. Verificado com erro real disparado localmente e confirmado no dashboard.
 - [ ] P-002 Onboarding de 1-2 escolas-piloto reais, incluindo verificação de subconta — Trilha C
 - [ ] P-003 Ciclo de feedback estruturado, atenção especial ao conteúdo das mensagens de régua — todas as trilhas
 - [ ] P-004 Ajustes de UX baseados no piloto — Trilha A

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/prisma";
 import { asaasRequest, resolveAsaasApiKey } from "@/lib/asaas";
 import type { ChargeStatus } from "@prisma/client";
@@ -58,6 +59,9 @@ export async function reconcileCharges(): Promise<{
       }
     } catch (error) {
       errors.push({ chargeId: charge.id, message: error instanceof Error ? error.message : String(error) });
+      // Sem isso, uma falha aqui só aparece no array de retorno do endpoint
+      // de cron — ninguém olha isso periodicamente. Com Sentry, vira alerta.
+      Sentry.captureException(error, { tags: { job: "reconcile-charges" }, extra: { chargeId: charge.id } });
     }
   }
 
